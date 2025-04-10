@@ -3,11 +3,15 @@ import mediapipe as mp
 import numpy as np
 import pandas as pd
 import pickle
+from firebase import initialize_firebase, set_emotion_state
 
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
 def use_trained_model():
+    # Initialize Firebase (optional)
+    firebase_ready = initialize_firebase()
+
     # Cargar el modelo entrenado
     with open('body_language.pkl', 'rb') as f:
         model = pickle.load(f)
@@ -71,6 +75,12 @@ def use_trained_model():
                 body_language_class = model.predict(X)[0]
                 body_language_prob = model.predict_proba(X)[0]
                 confidence = body_language_prob[np.argmax(body_language_prob)]
+
+                emotion = model.predict(X)[0]
+
+                # Update Firebase state
+                if firebase_ready:
+                    set_emotion_state(emotion)
 
                 # Coordenadas de la oreja izquierda
                 coords = tuple(np.multiply(
