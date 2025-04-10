@@ -55,46 +55,81 @@ def capture_data():
                                         mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2))
 
             # Mostrar el frame en una ventana
-            cv2.imshow("Cámara", image)
+            cv2.imshow("Camara", image)
 
             # Salir si se presiona la tecla "q"
             if cv2.waitKey(10) & 0xFF == ord('q'):
                 break
-            
+
             # Verificar si el archivo CSV existe
             if not os.path.exists('coords.csv'):
-                # Crear el archivo CSV con los encabezados
-                num_coords = len(results.pose_landmarks.landmark) + len(results.face_landmarks.landmark)
-                landmarks = ['class']
+                # Inicializamos el conteo total de landmarks
+                num_coords = 0
+                landmarks = ['Estado']
+
+                # Pose
+                if results.pose_landmarks:
+                    num_coords += len(results.pose_landmarks.landmark)
+                else:
+                    num_coords += 33  # valor fijo para pose
+
+                # Face
+                if results.face_landmarks:
+                    num_coords += len(results.face_landmarks.landmark)
+                else:
+                    num_coords += 468  # valor fijo para face
+
+                # Manos (siempre se añaden aunque no estén presentes)
+                num_coords += 21 * 2  # 21 por cada mano
+
                 for val in range(1, num_coords + 1):
                     landmarks += [f'x{val}', f'y{val}', f'z{val}', f'v{val}']
-                
+
                 with open('coords.csv', mode='w', newline='') as f:
                     csv_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                     csv_writer.writerow(landmarks)
-            
+
             # Guardar landmarks en CSV
             try:
-                # Extraer puntos de referencia de la pose
-                pose = results.pose_landmarks.landmark
-                pose_row = list(np.array([[landmark.x, landmark.y, landmark.z, landmark.visibility] for landmark in pose]).flatten())
-                
-                # Extraer puntos de referencia de la cara
-                face = results.face_landmarks.landmark
-                face_row = list(np.array([[landmark.x, landmark.y, landmark.z, landmark.visibility] for landmark in face]).flatten())
-                
-                # Concatenar filas
-                row = pose_row + face_row
-                
-                # Agregar el nombre de la clase al principio del row
+                row = []
+
+                # Pose
+                if results.pose_landmarks:
+                    pose = results.pose_landmarks.landmark
+                    row += list(np.array([[l.x, l.y, l.z, l.visibility] for l in pose]).flatten())
+                else:
+                    row += [0.0] * 33 * 4  # 33 landmarks * 4 valores
+
+                # Face
+                if results.face_landmarks:
+                    face = results.face_landmarks.landmark
+                    row += list(np.array([[l.x, l.y, l.z, l.visibility] for l in face]).flatten())
+                else:
+                    row += [0.0] * 468 * 4
+
+                # Mano izquierda
+                if results.left_hand_landmarks:
+                    left_hand = results.left_hand_landmarks.landmark
+                    row += list(np.array([[l.x, l.y, l.z, l.visibility] for l in left_hand]).flatten())
+                else:
+                    row += [0.0] * 21 * 4
+
+                # Mano derecha
+                if results.right_hand_landmarks:
+                    right_hand = results.right_hand_landmarks.landmark
+                    row += list(np.array([[l.x, l.y, l.z, l.visibility] for l in right_hand]).flatten())
+                else:
+                    row += [0.0] * 21 * 4
+
+                # Clase
                 row.insert(0, class_name)
-                
-                # Escribir en el archivo CSV
+
                 with open("coords.csv", mode="a", newline='') as f:
                     csv_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                     csv_writer.writerow(row)
-            except:
-                print("Error al guardar los datos")
+
+            except Exception as e:
+                print(f"Error al guardar los datos: {e}")
 
         cap.release()  # Liberar la cámara
         cv2.destroyAllWindows()  # Cerrar todas las ventanas
